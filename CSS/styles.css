@@ -1,0 +1,182 @@
+@import url('https://fonts.googleapis.com/css2?family=Anton&display=swap');
+html,
+body,
+div,
+span,
+applet,
+object,
+iframe,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+blockquote,
+pre,
+a,
+abbr,
+acronym,
+address,
+big,
+cite,
+code,
+del,
+dfn,
+em,
+img,
+ins,
+kbd,
+q,
+s,
+samp,
+small,
+strike,
+strong,
+sub,
+sup,
+tt,
+var,
+b,
+u,
+i,
+center,
+dl,
+dt,
+dd,
+ol,
+ul,
+li,
+fieldset,
+form,
+label,
+legend,
+table,
+caption,
+tbody,
+tfoot,
+thead,
+tr,
+th,
+td,
+article,
+aside,
+canvas,
+details,
+embed,
+figure,
+figcaption,
+footer,
+header,
+hgroup,
+menu,
+nav,
+output,
+ruby,
+section,
+summary,
+time,
+mark,
+audio,
+video {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: 100%;
+  font: inherit;
+  vertical-align: baseline;
+}
+
+body {
+  line-height: 1;
+  box-sizing: border-box;
+}
+
+.blocked-container {
+  font-family: 'Anton', sans-serif;
+  width: 100vw;
+  height: 100vh;
+  background: url(/images/goggins.webp);
+  background-size: cover;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.blocked-container h1 {
+  font-size: 5rem;
+  color: #fff;
+  -webkit-text-stroke-width: 4px;
+  -webkit-text-stroke-color: black;
+  width: 80%;
+  text-align: center;
+  line-height: 1.1;
+  letter-spacing: 3px;
+  flex-grow: 0.9;
+  margin-top: 17%;
+  text-transform: uppercase;
+}
+
+.blocked-container h3 {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 1.4vw;
+  color: black;
+  width: 80%;
+  text-align: center;
+  line-height: 1.1;
+  letter-spacing: 1px;
+}
+
+.blocked-container a {
+  color: inherit;
+  transition: color 0.3s ease-in-out;
+}
+
+.blocked-container a:hover {
+  color: rgb(21, 32, 43);
+  transition: color 0.3s ease-in-out;
+}
+
+.root-options {
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.option-img-container {
+  width: 80px;
+  margin: 20px 0;
+}
+
+.option-img-container img {
+  max-width: 100%;
+  height: auto;
+}
+
+#blocked-input {
+  width: 40vw;
+  height: 40px;
+  text-align: center;
+  font-size: 1rem;
+  border: 1px solid rgb(230, 230, 230);
+  margin-bottom: 1rem;
+  border-radius: 10px;
+}
+
+.root-options ul,
+li {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 40vw;
+}
+
+.blocked-list-item {
+  display: flex;
+  justify-content: space-between;
+  height: 16px;
+  margin-bottom: 1rem;
+}
