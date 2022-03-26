@@ -48,21 +48,14 @@ function parseURL(statusText) {
   }
 }
 
-// Take current URL from currentURLInPopUp var and add to chrome storage
+// Take current URL from currentURLInPopUp var and add to chrome storage + reload
 function addToBlockList(url) {
   chrome.storage.sync.get('gogginsBlocked', function (data) {
     const oldBlockedList = JSON.parse(data.gogginsBlocked);
     const newBlockedList = oldBlockedList.concat(url);
     chrome.storage.sync.set({ gogginsBlocked: JSON.stringify(newBlockedList) }, function () {});
-    // chrome.tabs.reload();
+    chrome.tabs.reload();
   });
-
-  // Reload current Tab to subsequently show blocked page
-  // chrome.tabs.getSelected(null, function (tab) {
-  //   var code = 'window.location.reload();';
-  //   chrome.scripting.executeScript(tab.id, { code: code });
-  // });
-  // chrome.tabs.reload();
 }
 
 // On load, run functions above to get current URL

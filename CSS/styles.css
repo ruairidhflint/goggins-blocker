@@ -97,7 +97,6 @@ body {
   font-family: 'Anton', sans-serif;
   width: 100vw;
   height: 100vh;
-  background: url(/images/goggins.webp);
   background-size: cover;
   display: flex;
   flex-direction: column;
@@ -106,9 +105,9 @@ body {
 }
 
 .blocked-container h1 {
-  font-size: 5rem;
+  font-size: 4.7rem;
   color: #fff;
-  -webkit-text-stroke-width: 4px;
+  -webkit-text-stroke-width: 3.5px;
   -webkit-text-stroke-color: black;
   width: 80%;
   text-align: center;
@@ -119,23 +118,31 @@ body {
   text-transform: uppercase;
 }
 
-.blocked-container h3 {
+.bottom-bar {
+  width: 95%;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.bottom-bar h3 {
   font-family: Arial, Helvetica, sans-serif;
-  font-size: 1.4vw;
-  color: black;
-  width: 80%;
+  font-size: 1.2rem;
+  color: white;
   text-align: center;
   line-height: 1.1;
   letter-spacing: 1px;
 }
 
-.blocked-container a {
+.bottom-bar a {
   color: inherit;
   transition: color 0.3s ease-in-out;
+  cursor: pointer;
 }
 
-.blocked-container a:hover {
-  color: rgb(21, 32, 43);
+.bottom-bar a:hover {
+  color: #fff;
   transition: color 0.3s ease-in-out;
 }
 
