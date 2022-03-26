@@ -14,6 +14,7 @@ const textOptions = [
   'Nobody cares what you did yesterday. What have you done today to better yourself?',
   'The only thing more contagious than a good attitude is a bad one.',
   'Greatness pulls mediocrity into the mud. Get out there and get after it.',
+  'Embrace suffering, you have to suffer.',
 ];
 const videoOptions = [
   'https://www.youtube.com/embed/TLKxdTmk-zc',
