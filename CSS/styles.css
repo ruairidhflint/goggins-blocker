@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Anton&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Anton&display=swap");
 html,
 body,
 div,
@@ -94,7 +94,7 @@ body {
 }
 
 .blocked-container {
-  font-family: 'Anton', sans-serif;
+  font-family: "Anton", sans-serif;
   width: 100vw;
   height: 100vh;
   background-size: cover;

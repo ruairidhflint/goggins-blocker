@@ -1,127 +1,308 @@
 class ItemList {
   constructor(list) {
-    this.blockedList = list;
-    this.app = this.getElement('#root-options');
-    this.list = this.createElement('ul', 'list');
-    this.form = this.getElement('#options-form');
-    this.input = this.getElement('#option-input');
+    this.blockedList = list || [];
+    this.app = this.getElement("#root-options");
+    this.list = this.createElement("ul", "list");
+    this.form = this.getElement("#options-form");
+    this.input = this.getElement("#option-input");
 
     this.onSubmit = this.onSubmit.bind(this);
     this.deleteItem = this.deleteItem.bind(this);
+    this.exportData = this.exportData.bind(this);
+    this.importData = this.importData.bind(this);
+
     this.form.onsubmit = this.onSubmit;
-
     this.app.append(this.list);
-
+    this.setupExportImport();
     this.displayList(this.blockedList);
   }
 
-  // Small function to create HTML element
   createElement(tag, className) {
     const element = document.createElement(tag);
     if (className) element.classList.add(className);
     return element;
   }
 
-  // Small function to retrieve item from DOM
   getElement(selector) {
-    const element = document.querySelector(selector);
-    return element;
+    return document.querySelector(selector);
   }
 
-  // Loop through current block list and crrate an LI element with favicon etc for each and attach to the DOM
+  normalizeDomain(domain) {
+    return domain
+      .toLowerCase()
+      .replace(/^www\./, "")
+      .trim();
+  }
+
+  validateURL(url) {
+    if (!url || typeof url !== "string") return false;
+
+    const trimmedUrl = url.trim();
+    if (!trimmedUrl) return false;
+
+    const domainRegex =
+      /^(www\.)?[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/;
+
+    const urlRegex =
+      /^https?:\/\/(www\.)?[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}(\/.*)?$/;
+
+    return domainRegex.test(trimmedUrl) || urlRegex.test(trimmedUrl);
+  }
+
+  extractDomain(input) {
+    try {
+      if (input.startsWith("http://") || input.startsWith("https://")) {
+        const url = new URL(input);
+        return url.hostname.replace(/^www\./, "");
+      }
+
+      return input.replace(/^www\./, "");
+    } catch (error) {
+      return input.replace(/^www\./, "");
+    }
+  }
+
+  setupExportImport() {
+    const controlsContainer = this.createElement("div", "controls-container");
+
+    const exportBtn = this.createElement("button", "export-btn");
+    exportBtn.textContent = "Export Blocked Sites";
+    exportBtn.type = "button";
+    exportBtn.onclick = this.exportData;
+
+    const importBtn = this.createElement("button", "import-btn");
+    importBtn.textContent = "Import Blocked Sites";
+    importBtn.type = "button";
+
+    const fileInput = this.createElement("input", "import-input");
+    fileInput.type = "file";
+    fileInput.accept = ".json";
+    fileInput.style.display = "none";
+    fileInput.onchange = this.importData;
+
+    importBtn.onclick = () => fileInput.click();
+
+    const clearBtn = this.createElement("button", "clear-btn");
+    clearBtn.textContent = "Clear All";
+    clearBtn.type = "button";
+    clearBtn.onclick = () => this.clearAll();
+
+    controlsContainer.append(exportBtn, importBtn, fileInput, clearBtn);
+    this.app.insertBefore(controlsContainer, this.app.firstChild);
+  }
+
   displayList(blockedList) {
     while (this.list.firstChild) {
       this.list.removeChild(this.list.firstChild);
     }
 
     if (blockedList.length === 0) {
-      const p = this.createElement('p', 'empty-blocked-list');
-      p.textContent = 'Nothing here yet!';
+      const p = this.createElement("p", "empty-blocked-list");
+      p.textContent = "Nothing here yet! Add some sites to block.";
       this.list.append(p);
     } else {
       blockedList.forEach((item) => {
-        const li = this.createElement('li', 'blocked-list-item');
+        const li = this.createElement("li", "blocked-list-item");
         li.id = item;
-        const span = this.createElement('span', 'blocker-list-text');
-        span.textContent = item;
-        const image = this.createElement('img', 'blocker-list-img');
-        const deleteButton = this.createElement('button', 'blocker-list-button');
+
+        const image = this.createElement("img", "blocker-list-img");
         image.src = `https://www.google.com/s2/favicons?domain=${item}`;
-        deleteButton.textContent = '-';
+        image.onerror = () => {
+          image.src = "https://www.google.com/s2/favicons?domain=google.com";
+        };
+
+        const span = this.createElement("span", "blocker-list-text");
+        span.textContent = item;
+
+        const deleteButton = this.createElement(
+          "button",
+          "blocker-list-button"
+        );
+        deleteButton.textContent = "×";
+        deleteButton.title = `Remove ${item}`;
         deleteButton.onclick = () => this.deleteItem(item);
+
         li.append(image, span, deleteButton);
         this.list.append(li);
       });
     }
   }
 
-  // Loop through exisitig storage list and remove item matching url
   deleteItem(id) {
-    const updatedBlockedList = this.blockedList.filter((item) => {
-      return item !== id;
+    const updatedBlockedList = this.blockedList.filter((item) => item !== id);
+    this.updateStorage(updatedBlockedList, () => {
+      this.blockedList = updatedBlockedList;
+      this.displayList(this.blockedList);
+      this.showMessage(`Removed ${id} from blocked list`, "success");
     });
-    chrome.storage.sync.set({ gogginsBlocked: JSON.stringify(updatedBlockedList) }, function () {});
-    this.blockedList = updatedBlockedList;
-    this.displayList(this.blockedList);
   }
 
-  // Add new item to blocked list and chrome storage
   addNewItem(newItem) {
-    this.blockedList = this.blockedList.concat(newItem);
+    const normalizedItem = this.normalizeDomain(this.extractDomain(newItem));
+    const updatedList = [...this.blockedList, normalizedItem];
 
-    chrome.storage.sync.set({ gogginsBlocked: JSON.stringify(this.blockedList) }, function () {});
-
-    this.displayList(this.blockedList);
-    this.input.style.border = '1px solid rgb(230, 230, 230)';
-    this.input.placeholder = 'Add Website to Blocklist eg. instagram.com';
-    this.input.value = '';
+    this.updateStorage(updatedList, () => {
+      this.blockedList = updatedList;
+      this.displayList(this.blockedList);
+      this.resetInput();
+      this.showMessage(`Added ${normalizedItem} to blocked list`, "success");
+    });
   }
 
-  // On submit, check validity of URL and pre-existence
+  updateStorage(list, callback) {
+    chrome.storage.sync.set({ gogginsBlocked: JSON.stringify(list) }, () => {
+      if (chrome.runtime.lastError) {
+        console.error("Storage error:", chrome.runtime.lastError);
+        this.showMessage("Failed to save changes", "error");
+        return;
+      }
+      if (callback) callback();
+    });
+  }
+
+  resetInput() {
+    this.input.value = "";
+    this.input.placeholder = "Add Website to Blocklist eg. instagram.com";
+    this.input.style.border = "1px solid rgb(230, 230, 230)";
+  }
+
+  showMessage(message, type = "info") {
+    if (type === "error") {
+      this.input.placeholder = message;
+      this.input.style.border = "1px solid #ff6b6b";
+    } else {
+      const messageEl = this.createElement("div", `message-${type}`);
+      messageEl.textContent = message;
+      messageEl.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${type === "success" ? "#4CAF50" : "#2196F3"};
+        color: white;
+        padding: 12px 24px;
+        border-radius: 4px;
+        z-index: 1000;
+        font-size: 14px;
+      `;
+      document.body.appendChild(messageEl);
+      setTimeout(() => messageEl.remove(), 3000);
+    }
+  }
+
+  checkURLRepetition(url) {
+    const normalizedUrl = this.normalizeDomain(this.extractDomain(url));
+    return this.blockedList.some(
+      (site) => this.normalizeDomain(site) === normalizedUrl
+    );
+  }
+
   onSubmit(e) {
     e.preventDefault();
-    if (this.checkURLRepetition(this.input.value)) {
-      this.input.value = '';
-      this.input.placeholder = 'URL already blocked';
-      this.input.style.border = '1px solid red';
-      this.input.blur();
-    } else {
-      if (this.validateURL(this.input.value)) {
-        this.addNewItem(this.input.value);
-      } else {
-        this.input.value = '';
-        this.input.placeholder = 'Invaild URL';
-        this.input.style.border = '1px solid red';
-        this.input.blur();
-      }
+    const inputValue = this.input.value.trim();
+
+    if (!inputValue) {
+      this.showMessage("Please enter a website", "error");
+      return;
     }
+
+    if (!this.validateURL(inputValue)) {
+      this.showMessage("Invalid URL format", "error");
+      return;
+    }
+
+    if (this.checkURLRepetition(inputValue)) {
+      this.showMessage("URL already blocked", "error");
+      return;
+    }
+
+    this.addNewItem(inputValue);
   }
 
-  // Regex to check input is valid URL
-  validateURL(url) {
-    const urlRegex =
-      /(([\w]+:)?\/\/)?(([\d\w]|%[a-fA-f\d]{2,2})+(:([\d\w]|%[a-fA-f\d]{2,2})+)?@)?([\d\w][-\d\w]{0,253}[\d\w]\.)+[\w]{2,63}(:[\d]+)?(\/([-+_~.\d\w]|%[a-fA-f\d]{2,2})*)*(\?(&?([-+_~.\d\w]|%[a-fA-f\d]{2,2})=?)*)?(#([-+_~.\d\w]|%[a-fA-f\d]{2,2})*)?/;
+  exportData() {
+    chrome.storage.sync.get([], () => {
+      const exportData = {
+        exportDate: new Date().toISOString(),
+        version: "1.0",
+        blockedSites: this.blockedList,
+      };
 
-    if (urlRegex.test(url)) {
-      return true;
-    } else {
-      return false;
-    }
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+
+      const a = this.createElement("a");
+      a.href = url;
+      a.download = `goggins-blocker-export-${
+        new Date().toISOString().split("T")[0]
+      }.json`;
+      a.click();
+
+      URL.revokeObjectURL(url);
+      this.showMessage("Data exported successfully", "success");
+    });
   }
 
-  // Check if submitted URL already exists
-  checkURLRepetition(url) {
-    let repeated = false;
-    for (let i = 0; i < this.blockedList.length; i++) {
-      if (this.blockedList[i].includes(url)) {
-        repeated = true;
+  importData(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+
+        if (!data.blockedSites || !Array.isArray(data.blockedSites)) {
+          throw new Error("Invalid file format");
+        }
+
+        const validSites = data.blockedSites
+          .filter((site) => typeof site === "string" && this.validateURL(site))
+          .map((site) => this.normalizeDomain(this.extractDomain(site)));
+
+        const mergedList = [...new Set([...this.blockedList, ...validSites])];
+
+        this.updateStorage(mergedList, () => {
+          this.blockedList = mergedList;
+          this.displayList(this.blockedList);
+          this.showMessage(`Imported ${validSites.length} sites`, "success");
+        });
+      } catch (error) {
+        console.error("Import error:", error);
+        this.showMessage("Failed to import file", "error");
       }
+    };
+
+    reader.readAsText(file);
+
+    event.target.value = "";
+  }
+
+  clearAll() {
+    if (confirm("Are you sure you want to remove all blocked sites?")) {
+      this.updateStorage([], () => {
+        this.blockedList = [];
+        this.displayList(this.blockedList);
+        this.showMessage("All blocked sites cleared", "success");
+      });
     }
-    return repeated;
   }
 }
 
-// Get latest iteration from chrome storage and pass it to the consturctor of the list, attaching to the DOM.
-chrome.storage.sync.get('gogginsBlocked', function (data) {
-  const app = new ItemList(JSON.parse(data.gogginsBlocked));
+document.addEventListener("DOMContentLoaded", () => {
+  chrome.storage.sync.get("gogginsBlocked", function (data) {
+    if (chrome.runtime.lastError) {
+      console.error("Storage error:", chrome.runtime.lastError);
+      new ItemList([]);
+      return;
+    }
+
+    try {
+      const blockedSites = JSON.parse(data.gogginsBlocked || "[]");
+      new ItemList(blockedSites);
+    } catch (error) {
+      console.error("Error parsing blocked sites:", error);
+      new ItemList([]);
+    }
+  });
 });
