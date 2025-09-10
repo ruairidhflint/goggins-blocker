@@ -1,13 +1,18 @@
-chrome.runtime.onInstalled.addListener(function (details) {
+chrome.runtime.onInstalled.addListener(async function (details) {
   console.log("Goggins Blocker installed/updated:", details.reason);
 
-  chrome.storage.sync.set({ gogginsBlocked: "[]" }, function () {
-    if (chrome.runtime.lastError) {
-      console.error("Failed to initialize storage:", chrome.runtime.lastError);
-      return;
+  try {
+    // Only initialize if storage doesn't already exist
+    const existingData = await chrome.storage.local.get("gogginsBlocked");
+    if (!existingData.gogginsBlocked) {
+      await chrome.storage.local.set({ gogginsBlocked: "[]" });
+      console.log("Extension initialized successfully");
+    } else {
+      console.log("Extension storage already exists");
     }
-    console.log("Storage initialized successfully");
-  });
+  } catch (error) {
+    console.error("Failed to initialize storage:", error);
+  }
 
   if (details.reason === "install") {
     chrome.notifications.create({
@@ -21,7 +26,7 @@ chrome.runtime.onInstalled.addListener(function (details) {
 });
 
 chrome.storage.onChanged.addListener(function (changes, areaName) {
-  if (areaName === "sync" && changes.gogginsBlocked) {
+  if (areaName === "local" && changes.gogginsBlocked) {
     console.log("Blocked sites updated:", changes.gogginsBlocked.newValue);
   }
 });

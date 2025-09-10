@@ -28,10 +28,17 @@ class ItemList {
   }
 
   normalizeDomain(domain) {
-    return domain
-      .toLowerCase()
-      .replace(/^www\./, "")
-      .trim();
+    if (!domain) return "";
+
+    // Convert to lowercase and remove www. prefix for comparison
+    let normalized = domain.toLowerCase().trim();
+
+    // Remove www. prefix if present
+    if (normalized.startsWith("www.")) {
+      normalized = normalized.substring(4);
+    }
+
+    return normalized;
   }
 
   validateURL(url) {
@@ -40,13 +47,25 @@ class ItemList {
     const trimmedUrl = url.trim();
     if (!trimmedUrl) return false;
 
+    // More comprehensive domain validation
     const domainRegex =
-      /^(www\.)?[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/;
+      /^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/;
 
-    const urlRegex =
-      /^https?:\/\/(www\.)?[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}(\/.*)?$/;
+    // Check length constraints
+    if (trimmedUrl.length > 253) return false;
 
-    return domainRegex.test(trimmedUrl) || urlRegex.test(trimmedUrl);
+    // Check for valid domain format
+    if (!domainRegex.test(trimmedUrl)) return false;
+
+    // Additional checks for common issues
+    if (
+      trimmedUrl.includes("..") ||
+      trimmedUrl.startsWith(".") ||
+      trimmedUrl.endsWith(".")
+    )
+      return false;
+
+    return true;
   }
 
   extractDomain(input) {
@@ -138,19 +157,37 @@ class ItemList {
   }
 
   addNewItem(newItem) {
-    const normalizedItem = this.normalizeDomain(this.extractDomain(newItem));
-    const updatedList = [...this.blockedList, normalizedItem];
+    try {
+      // Normalize the domain before adding
+      const normalizedItem = this.normalizeDomain(this.extractDomain(newItem));
 
-    this.updateStorage(updatedList, () => {
-      this.blockedList = updatedList;
-      this.displayList(this.blockedList);
-      this.resetInput();
-      this.showMessage(`Added ${normalizedItem} to blocked list`, "success");
-    });
+      // Check if already exists (case-insensitive)
+      const exists = this.blockedList.some(
+        (item) => this.normalizeDomain(item) === normalizedItem
+      );
+
+      if (exists) {
+        this.showMessage("Domain already blocked", "error");
+        return;
+      }
+
+      const updatedList = [...this.blockedList, normalizedItem];
+
+      this.updateStorage(updatedList, () => {
+        this.blockedList = updatedList;
+        this.displayList(this.blockedList);
+        this.resetInput();
+        this.showMessage(`Added ${normalizedItem} to blocked list`, "success");
+        console.log("Successfully added to block list:", normalizedItem);
+      });
+    } catch (error) {
+      console.error("Error adding new item:", error);
+      this.showMessage("Error adding domain", "error");
+    }
   }
 
   updateStorage(list, callback) {
-    chrome.storage.sync.set({ gogginsBlocked: JSON.stringify(list) }, () => {
+    chrome.storage.local.set({ gogginsBlocked: JSON.stringify(list) }, () => {
       if (chrome.runtime.lastError) {
         console.error("Storage error:", chrome.runtime.lastError);
         this.showMessage("Failed to save changes", "error");
@@ -192,7 +229,7 @@ class ItemList {
   checkURLRepetition(url) {
     const normalizedUrl = this.normalizeDomain(this.extractDomain(url));
     return this.blockedList.some(
-      (site) => this.normalizeDomain(site) === normalizedUrl
+      (item) => this.normalizeDomain(item) === normalizedUrl
     );
   }
 
@@ -219,7 +256,7 @@ class ItemList {
   }
 
   exportData() {
-    chrome.storage.sync.get([], () => {
+    chrome.storage.local.get([], () => {
       const exportData = {
         exportDate: new Date().toISOString(),
         version: "1.0",
@@ -290,7 +327,7 @@ class ItemList {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  chrome.storage.sync.get("gogginsBlocked", function (data) {
+  chrome.storage.local.get("gogginsBlocked", function (data) {
     if (chrome.runtime.lastError) {
       console.error("Storage error:", chrome.runtime.lastError);
       new ItemList([]);

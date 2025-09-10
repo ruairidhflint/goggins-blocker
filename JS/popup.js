@@ -19,6 +19,47 @@ function extractDomain(url) {
   }
 }
 
+function normalizeDomain(domain) {
+  if (!domain) return "";
+
+  // Convert to lowercase and remove www. prefix for comparison
+  let normalized = domain.toLowerCase().trim();
+
+  // Remove www. prefix if present
+  if (normalized.startsWith("www.")) {
+    normalized = normalized.substring(4);
+  }
+
+  return normalized;
+}
+
+function isValidDomain(domain) {
+  if (!domain || typeof domain !== "string") return false;
+
+  const trimmedDomain = domain.trim();
+  if (!trimmedDomain) return false;
+
+  // More comprehensive domain validation
+  const domainRegex =
+    /^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/;
+
+  // Check length constraints
+  if (trimmedDomain.length > 253) return false;
+
+  // Check for valid domain format
+  if (!domainRegex.test(trimmedDomain)) return false;
+
+  // Additional checks for common issues
+  if (
+    trimmedDomain.includes("..") ||
+    trimmedDomain.startsWith(".") ||
+    trimmedDomain.endsWith(".")
+  )
+    return false;
+
+  return true;
+}
+
 function getCurrentTabUrl(callback) {
   const queryInfo = {
     active: true,
@@ -39,7 +80,7 @@ function getCurrentTabUrl(callback) {
 }
 
 function checkIfAlreadyBlocked(domain, callback) {
-  chrome.storage.sync.get("gogginsBlocked", function (data) {
+  chrome.storage.local.get("gogginsBlocked", function (data) {
     if (chrome.runtime.lastError) {
       console.error("Storage error:", chrome.runtime.lastError);
       callback(false);
@@ -48,8 +89,9 @@ function checkIfAlreadyBlocked(domain, callback) {
 
     try {
       const blockedSites = JSON.parse(data.gogginsBlocked || "[]");
+      const normalizedDomain = normalizeDomain(domain);
       const isBlocked = blockedSites.some(
-        (site) => site.toLowerCase().replace(/^www\./, "") === domain
+        (site) => normalizeDomain(site) === normalizedDomain
       );
       callback(isBlocked);
     } catch (error) {
@@ -61,29 +103,49 @@ function checkIfAlreadyBlocked(domain, callback) {
 
 function parseURL(url) {
   if (!url) {
-    showUnavailable("Unable to access current tab");
+    setErrorState("Not available here");
     return;
   }
 
-  const domain = extractDomain(url);
+  try {
+    const urlObj = new URL(url);
+    const domain = urlObj.hostname;
 
-  if (!domain) {
-    showUnavailable("Not available here");
-    return;
+    // Check if we're on a blocked page (extension URL)
+    if (
+      url.startsWith("chrome-extension://") ||
+      url.startsWith("moz-extension://")
+    ) {
+      setBlockedPageState();
+      return;
+    }
+
+    // Validate domain format
+    if (isValidDomain(domain)) {
+      setSuccessState(domain);
+    } else {
+      setErrorState("Invalid domain");
+    }
+  } catch (error) {
+    setErrorState("Not available here");
   }
+}
 
-  if (
-    url.startsWith("chrome://") ||
-    url.startsWith("chrome-extension://") ||
-    url.startsWith("moz-extension://")
-  ) {
-    showUnavailable("Cannot block browser pages");
-    return;
-  }
+function setBlockedPageState() {
+  websiteDisplay.textContent = "You're on a blocked page";
+  faviconDisplay.src = "https://www.google.com/s2/favicons?domain=google.com";
 
+  popupBlockButton.disabled = false;
+  popupBlockButton.style.backgroundColor = "rgba(52, 152, 219, 0.8)";
+  popupBlockButton.style.cursor = "pointer";
+  popupBlockButton.textContent = "Manage Blocklist";
+  popupBlockButton.onclick = () => chrome.runtime.openOptionsPage();
+}
+
+function setSuccessState(domain) {
   currentURLInPopUp = domain;
-  websiteDisplay.textContent = currentURLInPopUp;
-  faviconDisplay.src = `https://www.google.com/s2/favicons?domain=${currentURLInPopUp}`;
+  websiteDisplay.textContent = domain;
+  faviconDisplay.src = `https://www.google.com/s2/favicons?domain=${domain}`;
 
   checkIfAlreadyBlocked(domain, function (isBlocked) {
     if (isBlocked) {
@@ -94,13 +156,15 @@ function parseURL(url) {
   });
 }
 
-function showUnavailable(message) {
+function setErrorState(message) {
   websiteDisplay.textContent = message;
   faviconDisplay.src = "https://www.google.com/s2/favicons?domain=google.com";
-  popupBlockButton.textContent = "Unavailable";
-  popupBlockButton.style.backgroundColor = "lightgrey";
+
   popupBlockButton.disabled = true;
+  popupBlockButton.style.backgroundColor = "lightgrey";
   popupBlockButton.style.cursor = "not-allowed";
+  popupBlockButton.textContent = "Block This Site";
+  popupBlockButton.onclick = null;
 }
 
 function showAlreadyBlocked() {
@@ -111,8 +175,8 @@ function showAlreadyBlocked() {
 }
 
 function enableBlockButton() {
-  popupBlockButton.textContent = "Block";
-  popupBlockButton.style.backgroundColor = "";
+  popupBlockButton.textContent = "Block This Site";
+  popupBlockButton.style.backgroundColor = "rgba(255, 69, 96, 0.8)";
   popupBlockButton.disabled = false;
   popupBlockButton.style.cursor = "pointer";
   popupBlockButton.onclick = () => addToBlockList(currentURLInPopUp);
@@ -124,10 +188,9 @@ function addToBlockList(domain) {
   popupBlockButton.disabled = true;
   popupBlockButton.textContent = "Blocking...";
 
-  chrome.storage.sync.get("gogginsBlocked", function (data) {
+  chrome.storage.local.get("gogginsBlocked", function (data) {
     if (chrome.runtime.lastError) {
       console.error("Storage error:", chrome.runtime.lastError);
-
       enableBlockButton();
       return;
     }
@@ -135,9 +198,9 @@ function addToBlockList(domain) {
     try {
       const oldBlockedList = JSON.parse(data.gogginsBlocked || "[]");
 
-      const normalizedDomain = domain.toLowerCase().replace(/^www\./, "");
+      const normalizedDomain = normalizeDomain(domain);
       const isDuplicate = oldBlockedList.some(
-        (site) => site.toLowerCase().replace(/^www\./, "") === normalizedDomain
+        (site) => normalizeDomain(site) === normalizedDomain
       );
 
       if (isDuplicate) {
@@ -147,7 +210,7 @@ function addToBlockList(domain) {
 
       const newBlockedList = [...oldBlockedList, normalizedDomain];
 
-      chrome.storage.sync.set(
+      chrome.storage.local.set(
         { gogginsBlocked: JSON.stringify(newBlockedList) },
         function () {
           if (chrome.runtime.lastError) {

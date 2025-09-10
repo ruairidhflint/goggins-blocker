@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Goggins Blocker",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "description": "Boost your productivity and focus by channeling your inner Goggins. Block distracting or harmful websites with a click. ",
   "permissions": ["activeTab", "storage", "notifications"],
   "icons": {

@@ -11,7 +11,17 @@ function extractDomain(url) {
 }
 
 function normalizeDomain(domain) {
-  return domain.toLowerCase().replace(/^www\./, "");
+  if (!domain) return "";
+
+  // Convert to lowercase and remove www. prefix for comparison
+  let normalized = domain.toLowerCase().trim();
+
+  // Remove www. prefix if present
+  if (normalized.startsWith("www.")) {
+    normalized = normalized.substring(4);
+  }
+
+  return normalized;
 }
 
 function checkIfBlocked() {
@@ -21,7 +31,7 @@ function checkIfBlocked() {
     return;
   }
 
-  chrome.storage.sync.get("gogginsBlocked", function (data) {
+  chrome.storage.local.get("gogginsBlocked", function (data) {
     if (chrome.runtime.lastError) {
       console.error("Storage error:", chrome.runtime.lastError);
       return;
@@ -32,11 +42,15 @@ function checkIfBlocked() {
 
       for (const blockedSite of blockedSites) {
         const normalizedBlocked = normalizeDomain(blockedSite);
+        const normalizedCurrent = normalizeDomain(currentDomain);
 
-        if (
-          currentDomain === normalizedBlocked ||
-          currentDomain.endsWith("." + normalizedBlocked)
-        ) {
+        if (normalizedCurrent === normalizedBlocked) {
+          console.log(
+            "Blocking site:",
+            currentDomain,
+            "matches blocked site:",
+            blockedSite
+          );
           window.location.assign(blockedURL);
           return;
         }
